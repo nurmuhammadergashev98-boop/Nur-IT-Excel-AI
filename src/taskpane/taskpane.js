@@ -11,14 +11,12 @@ async function callGroqAI() {
   const status = document.getElementById("status");
 
   if (!prompt) {
-    alert("Iltimos, savol yoki vazifa yozing!");
+    alert("Vazifa yozing!");
     return;
   }
 
-  // Interfeysni yuklanish holatiga o'tkazish
   loader.style.display = "block";
   resultArea.style.display = "none";
-  status.innerText = "";
 
   try {
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -32,28 +30,34 @@ async function callGroqAI() {
         messages: [
           { 
             role: "system", 
-            content: "Sen Nur IT kompaniyasi tomonidan yaratilgan Excel yordamchisisan. Foydalanuvchiga o'zbek tilida, aniq va professional javob ber." 
+            content: "Sen Excel mutaxassisisan. Faqatgina so'ralgan formulani yoki natijani qaytar. Hech qanday ortiqcha gap yozma. Masalan: =SUM(A1:A10)" 
           },
           { role: "user", content: prompt }
-        ],
-        temperature: 0.7
+        ]
       })
     });
 
-    if (!response.ok) {
-        throw new Error("API ulanishda xato: " + response.status);
-    }
-
     const data = await response.json();
-    const aiResponse = data.choices[0].message.content;
+    const aiFormula = data.choices[0].message.content.trim();
 
-    // Natijani chiqarish
-    status.innerText = aiResponse;
+    // EXCELGA YOZISH QISMI
+    await Excel.run(async (context) => {
+      const range = context.workbook.getSelectedRange();
+      // Agar AI formula qaytargan bo'lsa (boshida '=' bo'lsa)
+      if (aiFormula.startsWith("=")) {
+        range.formulas = [[aiFormula]];
+      } else {
+        range.values = [[aiFormula]];
+      }
+      await context.sync();
+    });
+
+    status.innerText = "Bajarildi! Katakka yozildi: " + aiFormula;
     loader.style.display = "none";
     resultArea.style.display = "block";
 
   } catch (error) {
-    status.innerText = "Xatolik yuz berdi: " + error.message;
+    status.innerText = "Xatolik: " + error.message;
     loader.style.display = "none";
     resultArea.style.display = "block";
   }
